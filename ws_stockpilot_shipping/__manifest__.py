@@ -2,8 +2,8 @@
 # License AGPL-3.0 or later (http://www.gnu.org/licenses/agpl).
 {
     "name": "Stockpilot Connector - Shipping Method Mapping",
-    "version": "18.0.1.0.0",
-    "summary": "Map Stockpilot shipping lines to Odoo delivery carriers",
+    "version": "18.0.1.1.0",
+    "summary": "Map Stockpilot shipping lines to Odoo delivery carriers and shipping products per country",
     "author": "WeSolved B.V.",
     "website": "https://wesolved.com",
     "category": "Stock",
