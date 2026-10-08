@@ -107,6 +107,13 @@ class StockpilotConfiguration(models.Model):
         domain=[("type", "=", "service")],
         help="Product used for discounts on stockpilot",
     )
+    country_shipping_product_ids = fields.One2many(
+        "country.shipping.product",
+        "stockpilot_configuration_id",
+        string="Country Shipping Products",
+        help="Shipping product to use per country. Falls back to the "
+        "generic Shipping Product when no country-specific product is defined.",
+    )
 
     def _get_connection(self):
         """
