@@ -10,6 +10,13 @@
                         <field name="warehouse_id" />
                     </list>
                 </field>
+                <field name="country_fba_warehouse_ids">
+                    <list editable="bottom">
+                        <field name="sequence" widget="handle" />
+                        <field name="country_id" />
+                        <field name="warehouse_id" />
+                    </list>
+                </field>
             </xpath>
         </field>
     </record>

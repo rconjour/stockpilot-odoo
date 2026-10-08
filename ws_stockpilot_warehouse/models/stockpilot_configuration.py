@@ -15,3 +15,8 @@ class StockpilotConfiguration(models.Model):
     country_warehouse_ids = fields.One2many(
         "country.warehouse", "stockpilot_configuration_id", string="Country Warehouses"
     )
+    country_fba_warehouse_ids = fields.One2many(
+        "country.fba.warehouse",
+        "stockpilot_configuration_id",
+        string="Country FBA Warehouses",
+    )
