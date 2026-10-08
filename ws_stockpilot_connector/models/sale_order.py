@@ -60,6 +60,37 @@ class SaleOrder(models.Model):
             return stockpilot_configuration_id.external_warehouse_id
         return stockpilot_configuration_id.default_warehouse_id
 
+    def _get_shipping_product(self, stockpilot_configuration_id, country_code):
+        """
+        Resolve the shipping product to use for an imported Stockpilot order.
+
+        Looks up a country-specific override first. Other modules may extend
+        this method for their own (e.g. country based) routing. Falls back to
+        the configuration's generic shipping product when no country-specific
+        product is defined.
+
+        Args:
+            stockpilot_configuration_id (recordset): The configuration used for the import.
+            country_code (str): Shipping country code of the order.
+
+        Returns:
+            recordset: The product.product to use for the shipping order line.
+        """
+        country_shipping_product = self.env["country.shipping.product"].search(
+            [
+                (
+                    "stockpilot_configuration_id",
+                    "=",
+                    stockpilot_configuration_id.id,
+                ),
+                ("country_id.code", "=", country_code),
+            ],
+            limit=1,
+        )
+        if country_shipping_product:
+            return country_shipping_product.shipping_product_id
+        return stockpilot_configuration_id.shipping_product
+
     def _is_external_stockpilot_order(self, order):
         """
         Tell whether a Stockpilot order payload is flagged as external.
@@ -290,7 +321,9 @@ class SaleOrder(models.Model):
                     "price_unit": float(order.get("shipping_total", 0))
                     / (100 + float(order.get("vat_rate", 0)))
                     * 100,
-                    "product_id": stockpilot_configuration_id.shipping_product.id,
+                    "product_id": self._get_shipping_product(
+                        stockpilot_configuration_id, order.get("shipment_country")
+                    ).id,
                     "product_uom_qty": 1,
                 }
             )
