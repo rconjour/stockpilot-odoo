@@ -41,6 +41,15 @@ class SaleOrder(models.Model):
     def _get_warehouse(self, stockpilot_configuration_id, country_code):
         return stockpilot_configuration_id.default_warehouse_id
 
+    def _get_shipping_product(self, stockpilot_configuration_id, country_code):
+        """
+        Resolve the shipping product to use for an imported Stockpilot order.
+
+        Other modules may extend this method for their own (e.g. country
+        based) routing.
+        """
+        return stockpilot_configuration_id.shipping_product
+
     def _stockpilot_fulfill(self, t_and_t):
         """
         Trigger a fulfill update for this order in Stockpilot.
@@ -237,7 +246,9 @@ class SaleOrder(models.Model):
                         * 100,
                         2,
                     ),
-                    "product_id": stockpilot_configuration_id.shipping_product.id,
+                    "product_id": self._get_shipping_product(
+                        stockpilot_configuration_id, order.get("shipment_country")
+                    ).id,
                     "product_uom_qty": 1,
                 }
             )
