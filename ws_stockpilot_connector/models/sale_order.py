@@ -39,7 +39,7 @@ class SaleOrder(models.Model):
             _logger.info(res)
 
     def _get_warehouse(
-        self, stockpilot_configuration_id, country_code, is_external=False
+        self, stockpilot_configuration_id, country_code, is_external=False, order=None
     ):
         """
         Resolve the warehouse an imported Stockpilot order should be booked on.
@@ -52,6 +52,9 @@ class SaleOrder(models.Model):
             stockpilot_configuration_id (recordset): The configuration used for the import.
             country_code (str): Shipping country code of the order.
             is_external (bool): Whether the order is flagged as external in Stockpilot.
+            order (dict): Stockpilot order payload (order_details section). Made
+                available so overrides can route based on the ordered products
+                (e.g. picking the FBA warehouse with the most stock).
 
         Returns:
             recordset: The stock.warehouse to use.
@@ -250,6 +253,7 @@ class SaleOrder(models.Model):
                     stockpilot_configuration_id,
                     order.get("shipment_country"),
                     is_external=is_external,
+                    order=order,
                 ).id,
                 "currency_id": self.env['res.currency'].search([("name", "=", order.get("currency_code"))], limit=1).id,
             }
