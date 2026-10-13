@@ -1,2 +1,3 @@
 id,name,model_id:id,group_id:id,perm_read,perm_write,perm_create,perm_unlink
 access_stockpilot_shipping_method,access.stockpilot.shipping.method,model_stockpilot_shipping_method,base.group_user,1,1,1,1
+access_country_shipping_product,access.country.shipping.product,model_country_shipping_product,base.group_user,1,1,1,1
