@@ -16,6 +16,14 @@ class SaleOrder(models.Model):
         "stockpilot.configuration", readonly=True
     )
     stockpilot_error = fields.Boolean(string="Data mismatch", copy=False)
+    stockpilot_batch_reference = fields.Char(
+        string="Stockpilot Batch Reference",
+        readonly=True,
+        copy=False,
+        help="Traceability reference of the job context used to import "
+        "this order, kept even if the originating configuration or job "
+        "context is later deleted.",
+    )
 
     _sql_constraints = [
         (
@@ -39,7 +47,7 @@ class SaleOrder(models.Model):
             _logger.info(res)
 
     def _get_warehouse(
-        self, stockpilot_configuration_id, country_code, is_external=False, order=None
+        self, stockpilot_context, country_code, is_external=False, order=None
     ):
         """
         Resolve the warehouse an imported Stockpilot order should be booked on.
@@ -49,7 +57,10 @@ class SaleOrder(models.Model):
         method for their own (e.g. country based) routing.
 
         Args:
-            stockpilot_configuration_id (recordset): The configuration used for the import.
+            stockpilot_context (recordset): A stockpilot.configuration or
+                stockpilot.job.context record exposing the configuration
+                data needed for the import (both expose the same field
+                names, so either can be passed interchangeably).
             country_code (str): Shipping country code of the order.
             is_external (bool): Whether the order is flagged as external in Stockpilot.
             order (dict): Stockpilot order payload (order_details section). Made
@@ -60,10 +71,10 @@ class SaleOrder(models.Model):
             recordset: The stock.warehouse to use.
         """
         if is_external:
-            return stockpilot_configuration_id.external_warehouse_id
-        return stockpilot_configuration_id.default_warehouse_id
+            return stockpilot_context.external_warehouse_id
+        return stockpilot_context.default_warehouse_id
 
-    def _get_shipping_product(self, stockpilot_configuration_id, country_code):
+    def _get_shipping_product(self, stockpilot_context, country_code):
         """
         Resolve the shipping product to use for an imported Stockpilot order.
 
@@ -73,7 +84,8 @@ class SaleOrder(models.Model):
         product is defined.
 
         Args:
-            stockpilot_configuration_id (recordset): The configuration used for the import.
+            stockpilot_context (recordset): A stockpilot.configuration or
+                stockpilot.job.context record used for the import.
             country_code (str): Shipping country code of the order.
 
         Returns:
@@ -84,7 +96,7 @@ class SaleOrder(models.Model):
                 (
                     "stockpilot_configuration_id",
                     "=",
-                    stockpilot_configuration_id.id,
+                    stockpilot_context._stockpilot_config_id(),
                 ),
                 ("country_id.code", "=", country_code),
             ],
@@ -92,7 +104,7 @@ class SaleOrder(models.Model):
         )
         if country_shipping_product:
             return country_shipping_product.shipping_product_id
-        return stockpilot_configuration_id.shipping_product
+        return stockpilot_context.shipping_product
 
     def _is_external_stockpilot_order(self, order):
         """
@@ -158,13 +170,17 @@ class SaleOrder(models.Model):
         """
         return order
 
-    def _import_stockpilot_order(self, order, stockpilot_configuration_id):
+    def _import_stockpilot_order(self, order, stockpilot_context):
         """
         Create a sale.order from a Stockpilot order payload.
 
         Args:
             order (dict): Stockpilot order data (API response structure).
-            stockpilot_configuration_id (recordset): The configuration used for the import.
+            stockpilot_context (recordset): The stockpilot.job.context
+                snapshot built for this import batch. Carries the
+                configuration data the import needs as independent,
+                task-specific metadata, so this job does not depend on the
+                originating stockpilot.configuration record still existing.
 
         Returns:
             None
@@ -178,10 +194,10 @@ class SaleOrder(models.Model):
             return
 
         is_external = self._is_external_stockpilot_order(order)
-        if is_external and not stockpilot_configuration_id.external_warehouse_id:
+        if is_external and not stockpilot_context.external_warehouse_id:
             _logger.info(
                 f"Skipping external Stockpilot order {order_id}: no external warehouse "
-                f"configured on {stockpilot_configuration_id.name}"
+                f"configured (batch reference {stockpilot_context.batch_reference})"
             )
             return
 
@@ -274,14 +290,15 @@ class SaleOrder(models.Model):
                 "partner_shipping_id": partner_id.id,
                 "partner_invoice_id": billing_partner.id,
                 "client_order_ref": order_number,
-                "team_id": stockpilot_configuration_id.crm_team_id.id,
+                "team_id": stockpilot_context.crm_team_id.id,
                 "date_order": datetime.datetime.fromisoformat(order_date).strftime(
                     "%Y-%m-%d %H:%M:%S"
                 ),
                 "stockpilot_id": order_id,
-                "stockpilot_configuration_id": stockpilot_configuration_id.id,
+                "stockpilot_configuration_id": stockpilot_context._stockpilot_config_id(),
+                "stockpilot_batch_reference": stockpilot_context.batch_reference,
                 "warehouse_id": self._get_warehouse(
-                    stockpilot_configuration_id,
+                    stockpilot_context,
                     order.get("shipment_country"),
                     is_external=is_external,
                     order=order,
@@ -326,7 +343,7 @@ class SaleOrder(models.Model):
                     / (100 + float(order.get("vat_rate", 0)))
                     * 100,
                     "product_id": self._get_shipping_product(
-                        stockpilot_configuration_id, order.get("shipment_country")
+                        stockpilot_context, order.get("shipment_country")
                     ).id,
                     "product_uom_qty": 1,
                 }
@@ -345,13 +362,12 @@ class SaleOrder(models.Model):
                     )
                     * -1
                     * 100,
-                    "product_id": stockpilot_configuration_id.discount_product.id,
+                    "product_id": stockpilot_context.discount_product.id,
                     "product_uom_qty": 1,
                     "tax_id": [(6, 0, tax.ids)] if tax else [(5, 0, 0)],
                 }
             )
         order_id.message_post(body=_("Customer note: %s") % order.get("customer_note"))
-        stockpilot_configuration_id._get_connection()
         if missing_product:
             order_id.message_post(
                 body=_(
@@ -360,6 +376,6 @@ class SaleOrder(models.Model):
             )
             order_id.stockpilot_error = True
 
-        if stockpilot_configuration_id.auto_confirm_orders and not missing_product:
+        if stockpilot_context.auto_confirm_orders and not missing_product:
             order_id.action_confirm()
         order_id.with_delay()._stockpilot_forwarding()

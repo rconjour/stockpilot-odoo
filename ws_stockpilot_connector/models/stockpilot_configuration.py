@@ -102,6 +102,16 @@ class StockpilotConfiguration(models.Model):
         "generic Shipping Product when no country-specific product is defined.",
     )
 
+    def _stockpilot_config_id(self):
+        """
+        Id of the configuration itself, for lookups against models keyed on
+        stockpilot_configuration_id (e.g. country.warehouse). Mirrors
+        stockpilot.job.context._stockpilot_config_id so callers can accept
+        either a configuration or a job context interchangeably.
+        """
+        self.ensure_one()
+        return self.id
+
     def _get_connection(self):
         """
         Get a StockpilotApi connection instance using this configuration's credentials.
@@ -248,8 +258,13 @@ class StockpilotConfiguration(models.Model):
         orders = response.json().get("results", [])
         _logger.info(response)
         _logger.info(orders)
+        job_context = self.env["stockpilot.job.context"]._create_from_configuration(
+            self
+        )
         for order in orders:
-            self.env["sale.order"].with_delay()._import_stockpilot_order(order, self)
+            self.env["sale.order"].with_delay()._import_stockpilot_order(
+                order, job_context
+            )
         return response
 
     def export_products(self):
