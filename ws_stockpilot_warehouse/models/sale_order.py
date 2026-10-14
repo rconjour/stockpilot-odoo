@@ -8,7 +8,7 @@ class SaleOrder(models.Model):
     _inherit = "sale.order"
 
     def _get_warehouse(
-        self, stockpilot_configuration_id, country_code, is_external=False, order=None
+        self, stockpilot_context, country_code, is_external=False, order=None
     ):
         """
         Get the warehouse based on the country code using the CountryWarehouse mapping.
@@ -19,16 +19,20 @@ class SaleOrder(models.Model):
         """
         if is_external:
             return self._get_fba_warehouse(
-                stockpilot_configuration_id, country_code, order=order
+                stockpilot_context, country_code, order=order
             )
 
-        _logger.info(stockpilot_configuration_id)
+        _logger.info(stockpilot_context)
         _logger.info(country_code)
         warehouse_id = (
             self.env["country.warehouse"]
             .search(
                 [
-                    ("stockpilot_configuration_id", "=", stockpilot_configuration_id.id),
+                    (
+                        "stockpilot_configuration_id",
+                        "=",
+                        stockpilot_context._stockpilot_config_id(),
+                    ),
                     ("country_id.code", "=", country_code),
                 ],
                 limit=1,
@@ -37,12 +41,12 @@ class SaleOrder(models.Model):
         )
         _logger.info(warehouse_id)
         if not warehouse_id:
-            warehouse_id = stockpilot_configuration_id.default_warehouse_id
+            warehouse_id = stockpilot_context.default_warehouse_id
 
         _logger.info(warehouse_id)
         return warehouse_id
 
-    def _get_fba_warehouse(self, stockpilot_configuration_id, country_code, order=None):
+    def _get_fba_warehouse(self, stockpilot_context, country_code, order=None):
         """
         Resolve the FBA warehouse an external order's destination country should
         be booked on.
@@ -55,7 +59,8 @@ class SaleOrder(models.Model):
         the country, the configuration's single external warehouse is used.
 
         Args:
-            stockpilot_configuration_id (recordset): The configuration used for the import.
+            stockpilot_context (recordset): A stockpilot.configuration or
+                stockpilot.job.context record used for the import.
             country_code (str): Shipping country code of the order.
             order (dict): Stockpilot order payload (order_details section), used
                 to look up the ordered products for stock-based selection.
@@ -65,13 +70,17 @@ class SaleOrder(models.Model):
         """
         fba_warehouses = self.env["country.fba.warehouse"].search(
             [
-                ("stockpilot_configuration_id", "=", stockpilot_configuration_id.id),
+                (
+                    "stockpilot_configuration_id",
+                    "=",
+                    stockpilot_context._stockpilot_config_id(),
+                ),
                 ("country_id.code", "=", country_code),
             ]
         )
         if not fba_warehouses:
             return super()._get_warehouse(
-                stockpilot_configuration_id,
+                stockpilot_context,
                 country_code,
                 is_external=True,
                 order=order,
@@ -89,7 +98,7 @@ class SaleOrder(models.Model):
             warehouse = fba_warehouse.warehouse_id
             qty = sum(
                 products.with_context(warehouse=warehouse.id).mapped(
-                    lambda product: product._calculate_stock(stockpilot_configuration_id)
+                    lambda product: product._calculate_stock(stockpilot_context)
                 )
             )
             if best_qty is None or qty > best_qty:

@@ -62,16 +62,21 @@ class ProductProduct(models.Model):
                         }
                     )
 
-    def _calculate_stock(self, stockpilot_configuration):
-        if stockpilot_configuration.stock_calculator == "qty_available":
+    def _calculate_stock(self, stockpilot_context):
+        """
+        Args:
+            stockpilot_context (recordset): A stockpilot.configuration or
+                stockpilot.job.context record exposing stock_calculator.
+        """
+        if stockpilot_context.stock_calculator == "qty_available":
             return self.qty_available
-        elif stockpilot_configuration.stock_calculator == "virtual_available":
+        elif stockpilot_context.stock_calculator == "virtual_available":
             return self.virtual_available
-        elif stockpilot_configuration.stock_calculator == "free_qty":
+        elif stockpilot_context.stock_calculator == "free_qty":
             return self.free_qty
-        elif stockpilot_configuration.stock_calculator == "incoming_qty":
+        elif stockpilot_context.stock_calculator == "incoming_qty":
             return self.incoming_qty
-        elif stockpilot_configuration.stock_calculator == "outgoing_qty":
+        elif stockpilot_context.stock_calculator == "outgoing_qty":
             return self.outgoing_qty
         return 0
 

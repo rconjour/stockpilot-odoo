@@ -5,3 +5,5 @@ access_stockpilot_product_product_user,access.stockpilot.product.product,model_s
 access_stockpilot_product_template_user,access.stockpilot.product.template,model_stockpilot_product_template,base.group_user,1,1,1,1
 access_stockpilot_product_category_user,access.stockpilot.product.category,model_stockpilot_product_category,base.group_user,1,1,1,1
 access_country_shipping_product,access.country.shipping.product,model_country_shipping_product,base.group_user,1,1,1,1
+access_stockpilot_job_context_user,access.stockpilot.job.context,model_stockpilot_job_context,base.group_user,1,1,1,0
+access_stockpilot_job_context_manager,stockpilot.job.context.manager,model_stockpilot_job_context,base.group_system,1,1,1,1
