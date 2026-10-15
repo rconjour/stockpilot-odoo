@@ -2,7 +2,7 @@
 # License AGPL-3.0 or later (http://www.gnu.org/licenses/agpl).
 {
     "name": "Stockpilot Connector",
-    "version": "17.0.1.6.0",
+    "version": "17.0.1.7.0",
     "summary": "Connector for Stockpilot integration",
     "author": "WeSolved B.V.",
     "website": "https://wesolved.com",
@@ -11,6 +11,7 @@
     "depends": [
         "sale_management",
         "sale_stock",
+        "delivery",
         "queue_job",
     ],
     "data": [
