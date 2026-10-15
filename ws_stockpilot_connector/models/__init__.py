@@ -12,3 +12,4 @@ from . import stockpilot_job_context
 from . import stockpilot_product_category
 from . import stockpilot_product_product
 from . import stockpilot_product_template
+from . import stockpilot_shipping_method

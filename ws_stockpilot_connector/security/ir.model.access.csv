@@ -7,3 +7,4 @@ access_stockpilot_product_category_user,access.stockpilot.product.category,model
 access_country_shipping_product,access.country.shipping.product,model_country_shipping_product,base.group_user,1,1,1,1
 access_stockpilot_job_context_user,access.stockpilot.job.context,model_stockpilot_job_context,base.group_user,1,1,1,0
 access_stockpilot_job_context_manager,stockpilot.job.context.manager,model_stockpilot_job_context,base.group_system,1,1,1,1
+access_stockpilot_shipping_method,access.stockpilot.shipping.method,model_stockpilot_shipping_method,base.group_user,1,1,1,1
