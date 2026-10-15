@@ -29,11 +29,17 @@ class SaleOrder(models.Model):
         return super()._get_shipping_product(stockpilot_configuration_id, country_code)
 
     def override_order(self, order, order_info):
+        """
+        Apply the Stockpilot shipping method to the order as an actual Odoo
+        delivery carrier, based on the configuration's shipping method
+        mapping, so the delivery method is applied to the order rather than
+        only reflected through the "Shipping" order line.
+        """
         order = super().override_order(order, order_info)
-        if not order_info.get("metadata").get("shippingLines"):
-            return order
-            
-        shipping_title = order_info.get("metadata").get("shippingLines")[0].get("method_title")
+        shipping_lines = ((order_info or {}).get("metadata") or {}).get(
+            "shippingLines"
+        ) or []
+        shipping_title = shipping_lines[0].get("method_title") if shipping_lines else False
 
         if not shipping_title:
             return order
