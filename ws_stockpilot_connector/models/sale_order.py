@@ -142,17 +142,57 @@ class SaleOrder(models.Model):
             )
             _logger.info(res)
 
+    def _get_shipping_method_title(self, order_info):
+        """
+        Resolve the Stockpilot shipping method title from an order payload.
+
+        Args:
+            order_info (dict): Full Stockpilot order payload (API response
+                structure).
+
+        Returns:
+            str or False: The shipping method title, if any.
+        """
+        shipping_lines = ((order_info or {}).get("metadata") or {}).get(
+            "shippingLines"
+        ) or []
+        return shipping_lines[0].get("method_title") if shipping_lines else False
+
     def override_order(self, order, order_info):
         """
-        Placeholder method for custom order overrides.
+        Apply the Stockpilot shipping method to the order as an actual Odoo
+        delivery carrier, based on the configuration's shipping method
+        mapping. Previously the shipping method was only reflected through a
+        "Shipping" order line; this also sets carrier_id so the delivery
+        method is applied to the order (and, in turn, to its deliveries).
         Can be extended in other modules to modify the order after creation.
 
         Args:
             order (recordset): The created sale.order record.
+            order_info (dict): Full Stockpilot order payload used to create
+                the order.
 
         Returns:
             recordset: The potentially modified sale.order record.
         """
+        shipping_title = self._get_shipping_method_title(order_info)
+        if not shipping_title:
+            return order
+
+        mapping = self.env["stockpilot.shipping.method"].search(
+            [
+                (
+                    "stockpilot_configuration_id",
+                    "=",
+                    order.stockpilot_configuration_id.id,
+                ),
+                ("stockpilot_name", "=", shipping_title),
+            ],
+            limit=1,
+        )
+        if mapping and mapping.carrier_id:
+            order.carrier_id = mapping.carrier_id.id
+
         return order
 
     def _import_stockpilot_order(self, order, stockpilot_configuration_id):
@@ -181,6 +221,7 @@ class SaleOrder(models.Model):
             )
             return
 
+        order_info = order
         order = order.get("order_details")
         company_id = False
         if order.get("shipment_company"):
@@ -271,7 +312,7 @@ class SaleOrder(models.Model):
         if stockpilot_configuration_id.pricelist_id:
             order_vals["pricelist_id"] = stockpilot_configuration_id.pricelist_id.id
         order_id = self.env["sale.order"].create(order_vals)
-        order_id = self.override_order(order_id, order)
+        order_id = self.override_order(order_id, order_info)
 
         missing_product = False
         for line in order.get("line_items"):

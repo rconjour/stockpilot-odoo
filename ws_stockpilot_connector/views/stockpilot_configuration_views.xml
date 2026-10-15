@@ -43,6 +43,12 @@
                                     <field name="shipping_product_id" />
                                 </list>
                             </field>
+                            <field name="shipping_method_ids">
+                                <list editable="bottom">
+                                    <field name="stockpilot_name" />
+                                    <field name="carrier_id" />
+                                </list>
+                            </field>
                             <field name="stock_calculator" />
                             <field name="pricelist_id" />
                             <field name="crm_team_id" />
