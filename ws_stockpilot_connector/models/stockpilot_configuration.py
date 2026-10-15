@@ -114,6 +114,13 @@ class StockpilotConfiguration(models.Model):
         help="Shipping product to use per country. Falls back to the "
         "generic Shipping Product when no country-specific product is defined.",
     )
+    shipping_method_ids = fields.One2many(
+        "stockpilot.shipping.method",
+        "stockpilot_configuration_id",
+        string="Shipping Methods",
+        help="Map Stockpilot shipping method names to Odoo delivery "
+        "carriers, so the carrier is applied on imported orders.",
+    )
 
     def _get_connection(self):
         """
