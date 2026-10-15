@@ -37,6 +37,12 @@
                             <field name="environment" />
                             <field name="shipping_product" />
                             <field name="discount_product" />
+                            <field name="shipping_method_ids">
+                                <tree editable="bottom">
+                                    <field name="stockpilot_name" />
+                                    <field name="carrier_id" />
+                                </tree>
+                            </field>
                             <field name="stock_calculator" />
                             <field name="crm_team_id" />
                             <field name="carrier_method" />
