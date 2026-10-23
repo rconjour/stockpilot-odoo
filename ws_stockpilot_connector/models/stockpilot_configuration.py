@@ -105,8 +105,9 @@ class StockpilotConfiguration(models.Model):
         "stockpilot.shipping.method",
         "stockpilot_configuration_id",
         string="Shipping Methods",
-        help="Map Stockpilot shipping method names to Odoo delivery "
-        "carriers, so the carrier is applied on imported orders.",
+        help="Map delivery carriers per country, so the carrier is applied "
+        "on imported orders based on the shipment country. Falls back to "
+        "no carrier override when no country-specific mapping is defined.",
     )
 
     def _stockpilot_config_id(self):

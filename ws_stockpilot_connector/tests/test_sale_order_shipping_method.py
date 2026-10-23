@@ -8,6 +8,8 @@ class TestSaleOrderShippingMethod(TransactionCase):
     @classmethod
     def setUpClass(cls):
         super().setUpClass()
+        cls.country_be = cls.env.ref("base.be")
+        cls.country_nl = cls.env.ref("base.nl")
         cls.configuration = cls.env["stockpilot.configuration"].create(
             {"name": "Test Configuration"}
         )
@@ -21,7 +23,7 @@ class TestSaleOrderShippingMethod(TransactionCase):
         cls.env["stockpilot.shipping.method"].create(
             {
                 "stockpilot_configuration_id": cls.configuration.id,
-                "stockpilot_name": "Express Shipping",
+                "country_id": cls.country_be.id,
                 "carrier_id": cls.carrier.id,
             }
         )
@@ -35,24 +37,24 @@ class TestSaleOrderShippingMethod(TransactionCase):
             }
         )
 
-    def _order_info(self, method_title):
-        return {"metadata": {"shippingLines": [{"method_title": method_title}]}}
+    def _order_info(self, country_code):
+        return {"order_details": {"shipment_country": country_code}}
 
-    def test_mapped_shipping_method_applies_carrier(self):
-        """A recognized Stockpilot shipping method sets the order's delivery carrier."""
+    def test_mapped_country_applies_carrier(self):
+        """A recognized shipment country sets the order's delivery carrier."""
         order = self.env["sale.order"].override_order(
-            self.order, self._order_info("Express Shipping")
+            self.order, self._order_info(self.country_be.code)
         )
         self.assertEqual(order.carrier_id, self.carrier)
 
-    def test_unmapped_shipping_method_leaves_carrier_unset(self):
-        """An unrecognized shipping method does not set a delivery carrier."""
+    def test_unmapped_country_leaves_carrier_unset(self):
+        """An unrecognized shipment country does not set a delivery carrier."""
         order = self.env["sale.order"].override_order(
-            self.order, self._order_info("Unknown Method")
+            self.order, self._order_info(self.country_nl.code)
         )
         self.assertFalse(order.carrier_id)
 
     def test_missing_shipping_metadata_leaves_carrier_unset(self):
-        """Orders without shipping line metadata still import without errors."""
+        """Orders without shipment country metadata still import without errors."""
         order = self.env["sale.order"].override_order(self.order, {})
         self.assertFalse(order.carrier_id)
