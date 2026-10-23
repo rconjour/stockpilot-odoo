@@ -10,3 +10,4 @@ from . import stockpilot_configuration
 from . import stockpilot_product_category
 from . import stockpilot_product_product
 from . import stockpilot_product_template
+from . import stockpilot_shipping_method
