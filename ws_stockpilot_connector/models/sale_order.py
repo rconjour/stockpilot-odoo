@@ -142,30 +142,41 @@ class SaleOrder(models.Model):
             )
             _logger.info(res)
 
-    def _get_shipping_method_title(self, order_info):
+    def _get_shipping_carrier(self, stockpilot_configuration_id, country_code):
         """
-        Resolve the Stockpilot shipping method title from an order payload.
+        Resolve the delivery carrier to use for an imported Stockpilot order.
+
+        Looks up a country-specific mapping. Other modules may extend this
+        method for their own (e.g. country based) routing.
 
         Args:
-            order_info (dict): Full Stockpilot order payload (API response
-                structure).
+            stockpilot_configuration_id (recordset): The configuration used for the import.
+            country_code (str): Shipping country code of the order.
 
         Returns:
-            str or False: The shipping method title, if any.
+            recordset: The delivery.carrier to use for the order, if any.
         """
-        shipping_lines = ((order_info or {}).get("metadata") or {}).get(
-            "shippingLines"
-        ) or []
-        return shipping_lines[0].get("method_title") if shipping_lines else False
+        shipping_method = self.env["stockpilot.shipping.method"].search(
+            [
+                (
+                    "stockpilot_configuration_id",
+                    "=",
+                    stockpilot_configuration_id.id,
+                ),
+                ("country_id.code", "=", country_code),
+            ],
+            limit=1,
+        )
+        return shipping_method.carrier_id
 
     def override_order(self, order, order_info):
         """
-        Apply the Stockpilot shipping method to the order as an actual Odoo
-        delivery carrier, based on the configuration's shipping method
-        mapping. Previously the shipping method was only reflected through a
-        "Shipping" order line; this also sets carrier_id so the delivery
-        method is applied to the order (and, in turn, to its deliveries).
-        Can be extended in other modules to modify the order after creation.
+        Apply a delivery carrier to the order based on the configuration's
+        shipping method mapping for the order's shipment country. Previously
+        the shipping method was only reflected through a "Shipping" order
+        line; this also sets carrier_id so the delivery method is applied to
+        the order (and, in turn, to its deliveries). Can be extended in other
+        modules to modify the order after creation.
 
         Args:
             order (recordset): The created sale.order record.
@@ -175,23 +186,17 @@ class SaleOrder(models.Model):
         Returns:
             recordset: The potentially modified sale.order record.
         """
-        shipping_title = self._get_shipping_method_title(order_info)
-        if not shipping_title:
+        country_code = ((order_info or {}).get("order_details") or {}).get(
+            "shipment_country"
+        )
+        if not country_code:
             return order
 
-        mapping = self.env["stockpilot.shipping.method"].search(
-            [
-                (
-                    "stockpilot_configuration_id",
-                    "=",
-                    order.stockpilot_configuration_id.id,
-                ),
-                ("stockpilot_name", "=", shipping_title),
-            ],
-            limit=1,
+        carrier = self._get_shipping_carrier(
+            order.stockpilot_configuration_id, country_code
         )
-        if mapping and mapping.carrier_id:
-            order.carrier_id = mapping.carrier_id.id
+        if carrier:
+            order.carrier_id = carrier.id
 
         return order
 
