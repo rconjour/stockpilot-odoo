@@ -39,7 +39,7 @@
                             <field name="discount_product" />
                             <field name="shipping_method_ids">
                                 <tree editable="bottom">
-                                    <field name="stockpilot_name" />
+                                    <field name="country_id" />
                                     <field name="carrier_id" />
                                 </tree>
                             </field>
