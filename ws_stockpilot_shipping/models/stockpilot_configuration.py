@@ -11,6 +11,8 @@ class StockpilotConfiguration(models.Model):
         "stockpilot.shipping.method",
         "stockpilot_configuration_id",
         string="Shipping Methods",
+        help="Delivery carrier to use per country. The order's shipment "
+        "country determines which carrier is applied to the order.",
     )
     country_shipping_product_ids = fields.One2many(
         "country.shipping.product",

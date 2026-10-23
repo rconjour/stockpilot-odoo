@@ -10,5 +10,13 @@ class StockpilotShippingMethod(models.Model):
     stockpilot_configuration_id = fields.Many2one(
         "stockpilot.configuration", required=True, ondelete="cascade"
     )
-    stockpilot_name = fields.Char(required=True)
+    country_id = fields.Many2one("res.country", required=True)
     carrier_id = fields.Many2one("delivery.carrier", required=True)
+
+    _sql_constraints = [
+        (
+            "country_configuration_uniq",
+            "unique(country_id, stockpilot_configuration_id)",
+            "A delivery carrier is already defined for this country.",
+        )
+    ]
