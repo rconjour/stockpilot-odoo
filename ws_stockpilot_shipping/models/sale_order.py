@@ -28,30 +28,42 @@ class SaleOrder(models.Model):
             return country_shipping_product.shipping_product_id
         return super()._get_shipping_product(stockpilot_configuration_id, country_code)
 
+    def _get_shipping_carrier(self, stockpilot_configuration_id, country_code):
+        """
+        Get the delivery carrier based on the country code using the
+        StockpilotShippingMethod mapping. Returns an empty recordset when no
+        country-specific mapping exists.
+        """
+        shipping_method = self.env["stockpilot.shipping.method"].search(
+            [
+                (
+                    "stockpilot_configuration_id",
+                    "=",
+                    stockpilot_configuration_id.id,
+                ),
+                ("country_id.code", "=", country_code),
+            ],
+            limit=1,
+        )
+        return shipping_method.carrier_id
+
     def override_order(self, order, order_info):
         """
         Apply the Stockpilot shipping method to the order as an actual Odoo
         delivery carrier, based on the configuration's shipping method
-        mapping, so the delivery method is applied to the order rather than
-        only reflected through the "Shipping" order line.
+        mapping for the order's shipment country, so the delivery method is
+        applied to the order rather than only reflected through the
+        "Shipping" order line.
         """
         order = super().override_order(order, order_info)
-        shipping_lines = ((order_info or {}).get("metadata") or {}).get(
-            "shippingLines"
-        ) or []
-        shipping_title = shipping_lines[0].get("method_title") if shipping_lines else False
-
-        if not shipping_title:
-            return order
-
-        mapping = self.env["stockpilot.shipping.method"].search(
-            [
-                ("stockpilot_configuration_id", "=", order.stockpilot_configuration_id.id),
-                ("stockpilot_name", "=", shipping_title),
-            ],
-            limit=1,
+        country_code = ((order_info or {}).get("order_details") or {}).get(
+            "shipment_country"
         )
-        if mapping and mapping.carrier_id:
-            order.carrier_id = mapping.carrier_id.id
+
+        carrier = self._get_shipping_carrier(
+            order.stockpilot_configuration_id, country_code
+        )
+        if carrier:
+            order.carrier_id = carrier.id
 
         return order

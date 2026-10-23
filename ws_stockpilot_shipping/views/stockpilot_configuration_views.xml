@@ -6,7 +6,7 @@
             <xpath expr="//field[@name='active']" position="after">
                 <field name="shipping_method_ids">
                     <list editable="bottom">
-                        <field name="stockpilot_name" />
+                        <field name="country_id" />
                         <field name="carrier_id" />
                     </list>
                 </field>
