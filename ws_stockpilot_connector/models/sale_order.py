@@ -94,6 +94,37 @@ class SaleOrder(models.Model):
             return country_shipping_product.shipping_product_id
         return stockpilot_configuration_id.shipping_product
 
+    def _get_crm_team(self, stockpilot_configuration_id, country_code):
+        """
+        Resolve the CRM team to use for an imported Stockpilot order.
+
+        Looks up a country-specific override first. Other modules may extend
+        this method for their own (e.g. country based) routing. Falls back
+        to the configuration's generic CRM team when no country-specific
+        team is defined.
+
+        Args:
+            stockpilot_configuration_id (recordset): The configuration used for the import.
+            country_code (str): Shipping country code of the order.
+
+        Returns:
+            recordset: The crm.team to use for the order.
+        """
+        country_crm_team = self.env["country.crm.team"].search(
+            [
+                (
+                    "stockpilot_configuration_id",
+                    "=",
+                    stockpilot_configuration_id.id,
+                ),
+                ("country_id.code", "=", country_code),
+            ],
+            limit=1,
+        )
+        if country_crm_team:
+            return country_crm_team.crm_team_id
+        return stockpilot_configuration_id.crm_team_id
+
     def _is_external_stockpilot_order(self, order):
         """
         Tell whether a Stockpilot order payload is flagged as external.
@@ -299,7 +330,9 @@ class SaleOrder(models.Model):
             "partner_shipping_id": partner_id.id,
             "partner_invoice_id": billing_partner.id,
             "client_order_ref": order_number,
-            "team_id": stockpilot_configuration_id.crm_team_id.id,
+            "team_id": self._get_crm_team(
+                stockpilot_configuration_id, order.get("shipment_country")
+            ).id,
             "date_order": datetime.datetime.fromisoformat(order_date).strftime(
                 "%Y-%m-%d %H:%M:%S"
             ),

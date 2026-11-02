@@ -33,7 +33,12 @@ class StockpilotConfiguration(models.Model):
         string="Stock Calculator",
         default="qty_available",
     )
-    crm_team_id = fields.Many2one("crm.team")
+    crm_team_id = fields.Many2one(
+        "crm.team",
+        string="Default CRM Team",
+        help="CRM team used for imported sale orders when no country-specific "
+        "team is defined.",
+    )
     auto_confirm_orders = fields.Boolean()
     pricelist_id = fields.Many2one(
         "product.pricelist",
@@ -120,6 +125,13 @@ class StockpilotConfiguration(models.Model):
         string="Shipping Methods",
         help="Map delivery carriers per country, so the carrier is applied "
         "on imported orders based on the shipment country.",
+    )
+    country_crm_team_ids = fields.One2many(
+        "country.crm.team",
+        "stockpilot_configuration_id",
+        string="Country CRM Teams",
+        help="CRM team to use per country. Falls back to the generic "
+        "Default CRM Team when no country-specific team is defined.",
     )
 
     def _get_connection(self):
