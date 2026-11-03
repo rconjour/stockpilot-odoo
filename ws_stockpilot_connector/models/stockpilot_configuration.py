@@ -169,7 +169,7 @@ class StockpilotConfiguration(models.Model):
             "type": "ir.actions.act_window",
             "name": "Configurations",
             "res_model": "stockpilot.configuration",
-            "view_mode": "tree,form",
+            "view_mode": "list,form",
             "contex": {
                 "search_default_active": not self.env.context.get(
                     "search_default_active", True

@@ -70,7 +70,7 @@ class TestCountryFbaWarehouse(TransactionCase):
 
     def test_fba_warehouse_multiple_mappings_picks_highest_stock(self):
         product = self.env["product.product"].create(
-            {"name": "FBA Test Product", "type": "product"}
+            {"name": "FBA Test Product", "type": "consu", "is_storable": True}
         )
         stockpilot_product = self.env["stockpilot.product.product"].create(
             {
