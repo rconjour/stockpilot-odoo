@@ -411,6 +411,9 @@ class SaleOrder(models.Model):
             )
             
         if order.get("shipping_total"):
+            shipping_product = self._get_shipping_product(
+                stockpilot_context, order.get("shipment_country")
+            )
             self.env["sale.order.line"].create(
                 {
                     "order_id": order_id.id,
@@ -418,16 +421,21 @@ class SaleOrder(models.Model):
                     "price_unit": float(order.get("shipping_total", 0))
                     / (100 + float(order.get("vat_rate", 0)))
                     * 100,
-                    "product_id": self._get_shipping_product(
-                        stockpilot_context, order.get("shipment_country")
-                    ).id,
+                    "product_id": shipping_product.id,
                     "product_uom_qty": 1,
+                    "tax_id": [
+                        (
+                            6,
+                            0,
+                            order_id.fiscal_position_id.map_tax(
+                                shipping_product.taxes_id
+                            ).ids,
+                        )
+                    ],
                 }
             )
         if order.get("discount"):
-            tax = self.env["account.tax"].search(
-                [("amount", "=", float(order.get("vat_rate")))], limit=1
-            )
+            discount_product = stockpilot_context.discount_product
             self.env["sale.order.line"].create(
                 {
                     "order_id": order_id.id,
@@ -438,9 +446,17 @@ class SaleOrder(models.Model):
                     )
                     * -1
                     * 100,
-                    "product_id": stockpilot_context.discount_product.id,
+                    "product_id": discount_product.id,
                     "product_uom_qty": 1,
-                    "tax_id": [(6, 0, tax.ids)] if tax else [(5, 0, 0)],
+                    "tax_id": [
+                        (
+                            6,
+                            0,
+                            order_id.fiscal_position_id.map_tax(
+                                discount_product.taxes_id
+                            ).ids,
+                        )
+                    ],
                 }
             )
         order_id.message_post(body=_("Customer note: %s") % order.get("customer_note"))
