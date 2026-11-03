@@ -106,6 +106,32 @@ class SaleOrder(models.Model):
             return country_shipping_product.shipping_product_id
         return stockpilot_context.shipping_product
 
+    def _get_pricelist(self, stockpilot_context, currency_code):
+        """
+        Resolve the pricelist to apply to a sale order imported from Stockpilot.
+
+        The configured pricelist is only used when its currency matches the
+        order's currency: Odoo requires a sale order's pricelist and currency
+        to agree, so applying a pricelist in the wrong currency would silently
+        reprice the order. Other modules may extend this method for their own
+        (e.g. country based) routing.
+
+        Args:
+            stockpilot_context (recordset): A stockpilot.configuration or
+                stockpilot.job.context record used for the import.
+            currency_code (str): ISO currency code of the order.
+
+        Returns:
+            recordset: The product.pricelist to use, or an empty recordset
+                when none is configured, or its currency doesn't match.
+        """
+        pricelist = stockpilot_context.pricelist_id
+        if not pricelist or not currency_code:
+            return pricelist
+        if pricelist.currency_id.name != currency_code:
+            return self.env["product.pricelist"]
+        return pricelist
+
     def _is_external_stockpilot_order(self, order):
         """
         Tell whether a Stockpilot order payload is flagged as external.
@@ -330,29 +356,32 @@ class SaleOrder(models.Model):
         else:
             billing_partner = partner_id
 
-        order_id = self.env["sale.order"].create(
-            {
-                "name": order_number,
-                "partner_id": partner_id.id,
-                "partner_shipping_id": partner_id.id,
-                "partner_invoice_id": billing_partner.id,
-                "client_order_ref": order_number,
-                "team_id": stockpilot_context.crm_team_id.id,
-                "date_order": datetime.datetime.fromisoformat(order_date).strftime(
-                    "%Y-%m-%d %H:%M:%S"
-                ),
-                "stockpilot_id": order_id,
-                "stockpilot_configuration_id": stockpilot_context._stockpilot_config_id(),
-                "stockpilot_batch_reference": stockpilot_context.batch_reference,
-                "warehouse_id": self._get_warehouse(
-                    stockpilot_context,
-                    order.get("shipment_country"),
-                    is_external=is_external,
-                    order=order,
-                ).id,
-                "currency_id": self.env['res.currency'].search([("name", "=", order.get("currency_code"))], limit=1).id,
-            }
-        )
+        currency_code = order.get("currency_code")
+        pricelist = self._get_pricelist(stockpilot_context, currency_code)
+        order_vals = {
+            "name": order_number,
+            "partner_id": partner_id.id,
+            "partner_shipping_id": partner_id.id,
+            "partner_invoice_id": billing_partner.id,
+            "client_order_ref": order_number,
+            "team_id": stockpilot_context.crm_team_id.id,
+            "date_order": datetime.datetime.fromisoformat(order_date).strftime(
+                "%Y-%m-%d %H:%M:%S"
+            ),
+            "stockpilot_id": order_id,
+            "stockpilot_configuration_id": stockpilot_context._stockpilot_config_id(),
+            "stockpilot_batch_reference": stockpilot_context.batch_reference,
+            "warehouse_id": self._get_warehouse(
+                stockpilot_context,
+                order.get("shipment_country"),
+                is_external=is_external,
+                order=order,
+            ).id,
+            "currency_id": self.env['res.currency'].search([("name", "=", currency_code)], limit=1).id,
+        }
+        if pricelist:
+            order_vals["pricelist_id"] = pricelist.id
+        order_id = self.env["sale.order"].create(order_vals)
         order_id = self.override_order(order_id, order_info)
 
         missing_product = False
@@ -420,6 +449,21 @@ class SaleOrder(models.Model):
                 body=_(
                     "One or more products in this order could not be found in Odoo and have been skipped. Please check this order yourself."
                 )
+            )
+            order_id.stockpilot_error = True
+
+        if stockpilot_context.pricelist_id and not pricelist:
+            order_id.message_post(
+                body=_(
+                    "The pricelist configured in the Stockpilot settings is in "
+                    "a different currency (%(pricelist_currency)s) than this "
+                    "order (%(order_currency)s), so it was not applied. "
+                    "Please check this order yourself."
+                )
+                % {
+                    "pricelist_currency": stockpilot_context.pricelist_id.currency_id.name,
+                    "order_currency": currency_code,
+                }
             )
             order_id.stockpilot_error = True
 
