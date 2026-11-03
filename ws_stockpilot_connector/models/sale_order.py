@@ -94,6 +94,31 @@ class SaleOrder(models.Model):
             return country_shipping_product.shipping_product_id
         return stockpilot_configuration_id.shipping_product
 
+    def _get_pricelist(self, stockpilot_configuration_id, currency_code):
+        """
+        Resolve the pricelist to apply to a sale order imported from Stockpilot.
+
+        The configured pricelist is only used when its currency matches the
+        order's currency: Odoo requires a sale order's pricelist and currency
+        to agree, so applying a pricelist in the wrong currency would silently
+        reprice the order. Other modules may extend this method for their own
+        (e.g. country based) routing.
+
+        Args:
+            stockpilot_configuration_id (recordset): The configuration used for the import.
+            currency_code (str): ISO currency code of the order.
+
+        Returns:
+            recordset: The product.pricelist to use, or an empty recordset
+                when none is configured, or its currency doesn't match.
+        """
+        pricelist = stockpilot_configuration_id.pricelist_id
+        if not pricelist or not currency_code:
+            return pricelist
+        if pricelist.currency_id.name != currency_code:
+            return self.env["product.pricelist"]
+        return pricelist
+
     def _is_external_stockpilot_order(self, order):
         """
         Tell whether a Stockpilot order payload is flagged as external.
@@ -312,10 +337,13 @@ class SaleOrder(models.Model):
                 order=order,
             ).id,
         }
-        # Only override the pricelist when the configuration defines one,
-        # otherwise let Odoo derive it from the customer.
-        if stockpilot_configuration_id.pricelist_id:
-            order_vals["pricelist_id"] = stockpilot_configuration_id.pricelist_id.id
+        # Only override the pricelist when the configuration defines one and
+        # its currency matches the order, otherwise let Odoo derive it from
+        # the customer.
+        currency_code = order.get("currency_code")
+        pricelist = self._get_pricelist(stockpilot_configuration_id, currency_code)
+        if pricelist:
+            order_vals["pricelist_id"] = pricelist.id
         order_id = self.env["sale.order"].create(order_vals)
         order_id = self.override_order(order_id, order_info)
 
@@ -344,7 +372,7 @@ class SaleOrder(models.Model):
                     * 100,
                 }
             )
-        _logger.info(line.get("shipping_total"))
+        _logger.info(order.get("shipping_total"))
         if order.get("shipping_total"):
             self.env["sale.order.line"].create(
                 {
@@ -380,6 +408,21 @@ class SaleOrder(models.Model):
                 body=_(
                     "One or more products in this order could not be found in Odoo and have been skipped. Please check this order yourself."
                 )
+            )
+            order_id.stockpilot_error = True
+
+        if stockpilot_configuration_id.pricelist_id and not pricelist:
+            order_id.message_post(
+                body=_(
+                    "The pricelist configured in the Stockpilot settings is in "
+                    "a different currency (%(pricelist_currency)s) than this "
+                    "order (%(order_currency)s), so it was not applied. "
+                    "Please check this order yourself."
+                )
+                % {
+                    "pricelist_currency": stockpilot_configuration_id.pricelist_id.currency_id.name,
+                    "order_currency": currency_code,
+                }
             )
             order_id.stockpilot_error = True
 
