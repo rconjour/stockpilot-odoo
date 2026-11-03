@@ -1,3 +1,4 @@
 from . import test_country_shipping_product
+from . import test_sale_order_fiscal_position_tax
 from . import test_sale_order_shipping_method
 from . import test_stockpilot_job_context
