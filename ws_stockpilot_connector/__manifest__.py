@@ -2,7 +2,7 @@
 # License AGPL-3.0 or later (http://www.gnu.org/licenses/agpl).
 {
     "name": "Stockpilot Connector",
-    "version": "16.0.1.4.0",
+    "version": "16.0.1.5.0",
     "summary": "Connector for Stockpilot integration",
     "author": "WeSolved B.V.",
     "website": "https://wesolved.com",
@@ -17,6 +17,7 @@
     ],
     "data": [
         "data/ir_cron.xml",
+        "data/product_pricelist.xml",
         "security/group.xml",
         "security/security.xml",
         "security/ir.model.access.csv",

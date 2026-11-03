@@ -44,6 +44,7 @@
                                 </tree>
                             </field>
                             <field name="stock_calculator" />
+                            <field name="pricelist_id" />
                             <field name="crm_team_id" />
                             <field name="carrier_method" />
                             <field name="auto_confirm_orders" />
